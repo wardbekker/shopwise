@@ -1,0 +1,58 @@
+# Grafana managed alert rule — `payment error rate high`.
+# Apply via:
+#   gcx api /api/v1/provisioning/alert-rules -X POST -H 'Content-Type: application/json' -d @alert-rule.json
+# (Convert this file to JSON, or use the API in YAML mode.)
+#
+# `folderUID` must reference an existing folder; the `demo` folder is provisioned by `make grafana-apply`.
+title: payment error rate high
+ruleGroup: payment-demo
+folderUID: fflqs43gpv7cwa
+condition: C
+for: 1m
+noDataState: OK
+execErrState: OK
+isPaused: false
+labels:
+  service: payment
+  severity: critical
+  runbook: payment-error-spike
+annotations:
+  summary: payment service 5xx error rate exceeds 5%
+  description: >-
+    Error ratio on the payment service (Beyla `http_server_request_duration_seconds_count`)
+    has been above 5% for 1 minute. Likely root causes: recent deploy regression,
+    dependency outage, or load-induced failure.
+data:
+  - refId: A
+    queryType: ""
+    relativeTimeRange: {from: 600, to: 0}
+    datasourceUid: grafanacloud-prom
+    model:
+      datasource: {type: prometheus, uid: grafanacloud-prom}
+      editorMode: code
+      expr: >-
+        (sum(rate(http_server_request_duration_seconds_count{service_name="payment",http_response_status_code=~"5.."}[5m]))
+        or vector(0)) /
+        clamp_min(sum(rate(http_server_request_duration_seconds_count{service_name="payment"}[5m])), 0.001)
+      instant: true
+      intervalMs: 1000
+      maxDataPoints: 43200
+      range: false
+      refId: A
+  - refId: C
+    queryType: ""
+    relativeTimeRange: {from: 0, to: 0}
+    datasourceUid: __expr__
+    model:
+      datasource: {type: __expr__, uid: __expr__}
+      expression: A
+      type: threshold
+      refId: C
+      intervalMs: 1000
+      maxDataPoints: 43200
+      conditions:
+        - type: query
+          evaluator: {type: gt, params: [0.05]}
+          operator: {type: and}
+          query: {params: [A]}
+          reducer: {type: last, params: []}

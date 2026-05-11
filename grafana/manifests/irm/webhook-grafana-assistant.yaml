@@ -1,0 +1,19 @@
+# Outgoing webhook that auto-triggers a Grafana Assistant Investigation whenever
+# an alert group is created in the `payment-demo` integration.
+#
+# The `grafana_assistant` preset locks `url` and `http_method` — do not send them
+# in the create payload. The integration_filter ID is server-assigned; substitute
+# at apply time.
+#
+# Apply via:
+#   INTEGRATION_ID=$(gcx irm oncall integrations list --json metadata.name,spec.verbal_name \
+#     -o json | jq -r '.[] | select(.["spec.verbal_name"]=="payment-demo") | .["metadata.name"]')
+#   gcx api /api/plugins/grafana-irm-app/resources/webhooks/ \
+#     -X POST -H 'Content-Type: application/json' \
+#     -d "{\"name\":\"Grafana Assistant - payment-demo\",\"preset\":\"grafana_assistant\",\"trigger_type\":\"1\",\"is_webhook_enabled\":true,\"integration_filter\":[\"$INTEGRATION_ID\"]}"
+name: Grafana Assistant - payment-demo
+preset: grafana_assistant
+trigger_type: "1"        # 1 = Alert Group Created
+is_webhook_enabled: true
+integration_filter:
+  - __INTEGRATION_ID__   # filled in at apply time (see header)

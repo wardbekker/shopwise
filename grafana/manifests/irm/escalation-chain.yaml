@@ -1,0 +1,12 @@
+# Minimal escalation chain — no human paging steps; exists only so the
+# integration's default route has somewhere to send alerts.
+#
+# Apply via:
+#   gcx api /api/plugins/grafana-irm-app/resources/escalation_chains/ \
+#     -X POST -H 'Content-Type: application/json' -d '{"name":"payment-demo"}'
+#
+# Then bind it to the integration's default route (`channel_filters/<id>`):
+#   gcx api /api/plugins/grafana-irm-app/resources/channel_filters/<route-id> \
+#     -X PUT -H 'Content-Type: application/json' \
+#     -d "{\"escalation_chain\":\"<chain-id>\"}"
+name: payment-demo

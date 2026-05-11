@@ -1,0 +1,12 @@
+# Grafana IRM (OnCall) integration receiving alerts from the Grafana managed
+# alert rule via the `payment-demo` contact point.
+#
+# OnCall resources are created server-side and get generated IDs (e.g. CA9SJ5X6ZJFVN).
+# This file is a creation template, not a reapply-by-ID manifest.
+#
+# Apply via:
+#   gcx api /api/plugins/grafana-irm-app/resources/alert_receive_channels/ \
+#     -X POST -H 'Content-Type: application/json' \
+#     -d '{"verbal_name":"payment-demo","integration":"grafana_alerting"}'
+verbal_name: payment-demo
+integration: grafana_alerting

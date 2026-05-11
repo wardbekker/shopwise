@@ -2,6 +2,8 @@
 
 What was created on 2026-05-11, with IDs for cleanup / re-use.
 
+Manifests (sanitised, for recreation): `manifests/`.
+
 ## Folder
 
 | Name | UID |
@@ -13,11 +15,16 @@ What was created on 2026-05-11, with IDs for cleanup / re-use.
 - Title: **`payment error rate high`**
 - Group: `payment-demo`
 - Folder UID: `fflqs43gpv7cwa`
-- Condition: `sum(rate(http_requests_total{service="payment",status=~"5.."}[5m])) / clamp_min(sum(rate(http_requests_total{service="payment"}[5m])), 0.001) > 0.05` for 1m
+- UID: `bflqs4pcrmi2oc`
+- Condition (fires when ratio > 0.05 for 1m):
+  ```promql
+  (sum(rate(http_server_request_duration_seconds_count{service_name="payment",http_response_status_code=~"5.."}[5m])) or vector(0))
+  /
+  clamp_min(sum(rate(http_server_request_duration_seconds_count{service_name="payment"}[5m])), 0.001)
+  ```
+- Source: Beyla auto-instrumentation (OTel semconv on all 7 services in namespace `shop`)
 - Labels: `service=payment`, `severity=critical`, `runbook=payment-error-spike`
 - `noDataState: OK`, `execErrState: OK`
-
-> Update the PromQL once the Go services expose request metrics. The current query is a placeholder using standard `http_requests_total` semantics.
 
 ## Contact point
 

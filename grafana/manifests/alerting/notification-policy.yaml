@@ -1,0 +1,17 @@
+# Root notification policy tree. Sending an updated tree REPLACES the existing tree —
+# include any pre-existing routes you want to keep when re-applying.
+#
+# Apply via:
+#   gcx alert notification-policies set -f notification-policy.yaml --force
+receiver: empty
+group_by:
+  - grafana_folder
+  - alertname
+routes:
+  - receiver: payment-demo
+    object_matchers:
+      - [service, =, payment]
+    group_wait: 0s
+    group_interval: 1m
+    repeat_interval: 5m
+    continue: false

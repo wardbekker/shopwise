@@ -1,0 +1,8 @@
+# Grafana folder hosting the demo alert rule.
+#
+# Apply via:
+#   gcx api /api/folders -X POST -H 'Content-Type: application/json' -d '{"title":"demo"}'
+#
+# Capture the returned `uid` and substitute it into alerting/alert-rule.yaml
+# (`folderUID`) before applying the alert rule.
+title: demo

@@ -1,0 +1,12 @@
+# Grafana alerting contact point routing to the IRM `payment-demo` integration.
+# The integration URL contains a per-integration auth token — substitute at apply time:
+#
+#   INTEGRATION_URL=$(gcx irm oncall integrations list --json spec.verbal_name,spec.integration_url \
+#     -o json | jq -r '.[] | select(.["spec.verbal_name"]=="payment-demo") | .["spec.integration_url"]')
+#   sed "s|__INTEGRATION_URL__|$INTEGRATION_URL|" contact-point.yaml | \
+#     gcx alert contact-points create -f -
+name: payment-demo
+type: oncall
+disableResolveMessage: false
+settings:
+  url: __INTEGRATION_URL__

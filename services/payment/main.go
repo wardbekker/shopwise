@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -16,6 +18,17 @@ import (
 )
 
 var ready atomic.Bool
+
+func failRate() float64 {
+	v, err := strconv.ParseFloat(os.Getenv("FAIL_RATE"), 64)
+	if err != nil || v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
 
 func main() {
 	port := os.Getenv("PORT")
@@ -42,6 +55,10 @@ func main() {
 		}
 		if req.Amount <= 0 || req.Currency == "" || req.UserID == "" {
 			httpx.WriteError(w, 400, "user_id, positive amount, currency required")
+			return
+		}
+		if r := failRate(); r > 0 && rand.Float64() < r {
+			httpx.WriteError(w, 500, "payment processor unavailable")
 			return
 		}
 		time.Sleep(50 * time.Millisecond)
