@@ -131,8 +131,12 @@ func sleepCtx(ctx context.Context, d time.Duration) {
 	}
 }
 
+const perRequestTimeout = 3 * time.Second
+
 func doGet(ctx context.Context, c *http.Client, u string) error {
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	reqCtx, cancel := context.WithTimeout(ctx, perRequestTimeout)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(reqCtx, http.MethodGet, u, nil)
 	resp, err := c.Do(req)
 	if err != nil {
 		return err
@@ -145,10 +149,12 @@ func doGet(ctx context.Context, c *http.Client, u string) error {
 }
 
 func doAdd(ctx context.Context, c *http.Client, u, pid string) error {
+	reqCtx, cancel := context.WithTimeout(ctx, perRequestTimeout)
+	defer cancel()
 	form := url.Values{}
 	form.Set("product_id", pid)
 	form.Set("quantity", "1")
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(form.Encode()))
+	req, _ := http.NewRequestWithContext(reqCtx, http.MethodPost, u, strings.NewReader(form.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := c.Do(req)
 	if err != nil {
@@ -163,7 +169,9 @@ func doAdd(ctx context.Context, c *http.Client, u, pid string) error {
 
 func doPost(ctx context.Context, c *http.Client, u string, body any) error {
 	_ = body
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, u, nil)
+	reqCtx, cancel := context.WithTimeout(ctx, perRequestTimeout)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(reqCtx, http.MethodPost, u, nil)
 	resp, err := c.Do(req)
 	if err != nil {
 		return err

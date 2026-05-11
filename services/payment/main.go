@@ -3,11 +3,10 @@ package main
 import (
 	"context"
 	"log"
-	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
+	"runtime/debug"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -19,15 +18,64 @@ import (
 
 var ready atomic.Bool
 
-func failRate() float64 {
-	v, err := strconv.ParseFloat(os.Getenv("FAIL_RATE"), 64)
-	if err != nil || v < 0 {
-		return 0
+type paymentProcessor struct {
+	apiKey string
+}
+
+func (p *paymentProcessor) charge(req model.ChargeRequest) (string, error) {
+	_ = p.apiKey
+	_ = req
+	return uuid.NewString(), nil
+}
+
+var defaultProcessor = &paymentProcessor{apiKey: "demo-key"}
+
+// pickProcessor selects a processor based on the charge amount.
+// High-value transactions are supposed to use a dedicated processor for
+// stricter fraud rules — but the wiring for that path was never finished,
+// so when BUG_AMOUNT_PANIC=1 it returns a nil pointer for amount > 100.
+func pickProcessor(amount float64) *paymentProcessor {
+	if os.Getenv("BUG_AMOUNT_PANIC") == "1" && amount > 100 {
+		var highValue *paymentProcessor // TODO: wire up high-value processor
+		return highValue
 	}
-	if v > 1 {
-		return 1
+	return defaultProcessor
+}
+
+func chargeHandler(w http.ResponseWriter, r *http.Request) {
+	var req model.ChargeRequest
+	if err := httpx.ReadJSON(r, &req); err != nil {
+		httpx.WriteError(w, 400, err.Error())
+		return
 	}
-	return v
+	if req.Amount <= 0 || req.Currency == "" || req.UserID == "" {
+		httpx.WriteError(w, 400, "user_id, positive amount, currency required")
+		return
+	}
+	processor := pickProcessor(req.Amount)
+	txID, err := processor.charge(req)
+	if err != nil {
+		httpx.WriteError(w, 500, err.Error())
+		return
+	}
+	time.Sleep(50 * time.Millisecond)
+	httpx.WriteJSON(w, 200, model.ChargeResponse{
+		TransactionID: txID,
+		Status:        "ok",
+	})
+}
+
+func recoverMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Printf("panic recovered: %v method=%s path=%s\n%s",
+					rec, r.Method, r.URL.Path, debug.Stack())
+				httpx.WriteError(w, 500, "internal server error")
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }
 
 func main() {
@@ -47,29 +95,9 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
 	})
-	mux.HandleFunc("POST /charge", func(w http.ResponseWriter, r *http.Request) {
-		var req model.ChargeRequest
-		if err := httpx.ReadJSON(r, &req); err != nil {
-			httpx.WriteError(w, 400, err.Error())
-			return
-		}
-		if req.Amount <= 0 || req.Currency == "" || req.UserID == "" {
-			httpx.WriteError(w, 400, "user_id, positive amount, currency required")
-			return
-		}
-		if r := failRate(); r > 0 && rand.Float64() < r {
-			httpx.WriteError(w, 500, "payment processor unavailable")
-			return
-		}
-		time.Sleep(50 * time.Millisecond)
-		resp := model.ChargeResponse{
-			TransactionID: uuid.NewString(),
-			Status:        "ok",
-		}
-		httpx.WriteJSON(w, 200, resp)
-	})
+	mux.HandleFunc("POST /charge", chargeHandler)
 
-	srv := &http.Server{Addr: ":" + port, Handler: mux}
+	srv := &http.Server{Addr: ":" + port, Handler: recoverMiddleware(mux)}
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("server: %v", err)

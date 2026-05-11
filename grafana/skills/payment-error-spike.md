@@ -88,11 +88,16 @@ Pick the lightest action that addresses the root cause:
 
 End the investigation with:
 
-- **Suspected root cause** — one sentence
-- **Confidence** — low / medium / high, with the reason
-- **Next action** — exactly one, owned and actionable
-- **Evidence** — bullet list of what you looked at (queries run, panels
-  consulted, traces inspected), so a human can re-verify quickly
+- **Suspected root cause** — one sentence in the summary, naming the
+  specific code location, config, or change when the evidence supports it
+- **Recommended actions** — ordered by impact, with the first being the
+  immediate mitigation (rollback, hotfix, scale, or escalate) and the rest
+  scoped to follow-up. Say "no aligned change found" or "evidence
+  inconclusive" rather than padding the list with speculation.
+- **Evidence** — what you looked at (queries run, panels consulted, traces
+  inspected, log signatures quoted), so a human can re-verify quickly
+- **Ruled-out hypotheses** — a short table of what you considered and
+  disproved, with the disproving evidence
 ```
 
 ## Why this Skill matches semantically

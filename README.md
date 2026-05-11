@@ -2,8 +2,9 @@
 
 E-commerce microservices on k3d, instrumented end-to-end with Grafana Cloud
 (Beyla metrics, Loki logs, Tempo traces, IRM, Assistant). The repo doubles as
-a demo stage: a flippable fault in the `payment` service drives a real alert
-through Grafana managed alerting → IRM → Grafana Assistant Investigation.
+a demo stage: a flippable bug in the `payment` service (a nil-pointer
+deref on high-value charges) drives a real alert through Grafana managed
+alerting → IRM → Grafana Assistant Investigation.
 
 ## What's in here
 
@@ -36,20 +37,24 @@ in `grafana/skills/payment-error-spike.md` is pasted into the UI (one-time).
 Trigger the fault:
 
 ```sh
-kubectl -n shop set env deploy/payment FAIL_RATE=0.5
+kubectl -n shop set env deploy/payment BUG_AMOUNT_PANIC=1
 ```
+
+When enabled, charges with `amount > 100` hit a code path that returns a nil
+`paymentProcessor` (the high-value processor wiring was never finished) and
+panic. The recover middleware logs the stack trace and returns HTTP 500.
 
 Clear the fault:
 
 ```sh
-kubectl -n shop set env deploy/payment FAIL_RATE-
+kubectl -n shop set env deploy/payment BUG_AMOUNT_PANIC-
 ```
 
 Expected timing (steady-state load from `loadgen`):
 
 | t (approx) | Event |
 |------------|-------|
-| 0:00 | `FAIL_RATE=0.5` set, pod rolls |
+| 0:00 | `BUG_AMOUNT_PANIC=1` set, pod rolls |
 | 1:00–2:00 | Beyla discovers the new pod; 5xx appear in metrics |
 | 2:30 | Ratio crosses 5% threshold |
 | 3:30 | Alert transitions `inactive → pending` (then `→ firing` after `for: 1m`) |
@@ -65,8 +70,8 @@ Open Claude Code in this repo and paste:
 
 > Run the payment-error demo scenario. `grafana/PROVISIONED.md` lists the
 > live Grafana Cloud assets; `DEMO.md` describes the flow. The fault toggle
-> is `kubectl -n shop set env deploy/payment FAIL_RATE=0.5` (clear with
-> `FAIL_RATE-`). Verify the cluster and gcx context `wbkprez` are healthy,
+> is `kubectl -n shop set env deploy/payment BUG_AMOUNT_PANIC=1` (clear with
+> `BUG_AMOUNT_PANIC-`). Verify the cluster and gcx context `wbkprez` are healthy,
 > then watch the payment 5xx ratio and the alert state, and walk me through
 > alert → IRM → Investigation.
 
@@ -76,7 +81,7 @@ to operate the demo.
 ## Cleanup
 
 ```sh
-kubectl -n shop set env deploy/payment FAIL_RATE-   # ensure fault is off
+kubectl -n shop set env deploy/payment BUG_AMOUNT_PANIC-   # ensure fault is off
 make down                                            # tear down the cluster
 # Grafana Cloud assets: see grafana/PROVISIONED.md for the delete commands.
 ```
