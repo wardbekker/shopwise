@@ -1,0 +1,22 @@
+apiVersion: syntheticmonitoring.ext.grafana.app/v1alpha1
+kind: Check
+metadata:
+  name: "webshop-product-catalog-74158"
+spec:
+  job: webshop-product-catalog
+  target: http://product-catalog.shop.svc.cluster.local:8081/products
+  enabled: true
+  frequency: 60000
+  timeout: 5000
+  probes:
+    - private probe
+  labels:
+    - name: app
+      value: webshop
+    - name: service
+      value: product-catalog
+  settings:
+    http:
+      method: GET
+      validStatusCodes:
+        - 200

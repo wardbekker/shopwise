@@ -1,0 +1,24 @@
+apiVersion: syntheticmonitoring.ext.grafana.app/v1alpha1
+kind: Check
+metadata:
+  name: "webshop-frontend-74157"
+spec:
+  job: webshop-frontend
+  target: http://frontend.shop.svc.cluster.local:8080/
+  enabled: true
+  frequency: 60000
+  timeout: 5000
+  probes:
+    - private probe
+  labels:
+    - name: app
+      value: webshop
+    - name: service
+      value: frontend
+  settings:
+    http:
+      method: GET
+      validStatusCodes:
+        - 200
+      failIfBodyNotMatchesRegexp:
+        - Shopwise

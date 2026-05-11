@@ -1,0 +1,22 @@
+apiVersion: syntheticmonitoring.ext.grafana.app/v1alpha1
+kind: Check
+metadata:
+  name: "webshop-payment-74161"
+spec:
+  job: webshop-payment
+  target: http://payment.shop.svc.cluster.local:8084/healthz
+  enabled: true
+  frequency: 60000
+  timeout: 5000
+  probes:
+    - private probe
+  labels:
+    - name: app
+      value: webshop
+    - name: service
+      value: payment
+  settings:
+    http:
+      method: GET
+      validStatusCodes:
+        - 200

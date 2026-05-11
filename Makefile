@@ -2,7 +2,7 @@ SERVICES := frontend product-catalog cart checkout payment order loadgen
 CLUSTER  := webinar-demo
 TAG      := dev
 
-.PHONY: tidy build import cluster-up cluster-down deploy undeploy up wait-ready down logs reload status psql monitoring-install monitoring-uninstall monitoring-status
+.PHONY: tidy build import cluster-up cluster-down deploy undeploy up wait-ready down logs reload status psql monitoring-install monitoring-uninstall monitoring-status sm-probe-install sm-probe-uninstall sm-probe-status
 
 tidy:
 	go mod tidy
@@ -75,3 +75,26 @@ monitoring-uninstall:
 
 monitoring-status:
 	@kubectl -n monitoring get pods,svc 2>&1
+
+sm-probe-install:
+	@test -f .env || (echo "missing .env (see .env.example)" && exit 1)
+	@set -a; . ./.env; set +a; \
+	test -n "$$SM_API_TOKEN" || (echo "SM_API_TOKEN not set in .env" && exit 1); \
+	test -n "$$SM_API_SERVER" || (echo "SM_API_SERVER not set in .env" && exit 1); \
+	kubectl apply -f deploy/sm-probe/namespace.yaml; \
+	kubectl -n synthetic-monitoring create secret generic sm-agent-1 \
+		--from-literal=api-token="$$SM_API_TOKEN" \
+		--from-literal=api-server="$$SM_API_SERVER" \
+		--dry-run=client -o yaml | kubectl apply -f -; \
+	kubectl apply -f deploy/sm-probe/deployment.yaml; \
+	kubectl -n synthetic-monitoring rollout status deploy/sm-agent-1 --timeout=120s
+
+sm-probe-uninstall:
+	kubectl delete -f deploy/sm-probe/deployment.yaml --ignore-not-found
+	kubectl -n synthetic-monitoring delete secret sm-agent-1 --ignore-not-found
+	kubectl delete -f deploy/sm-probe/namespace.yaml --ignore-not-found
+
+sm-probe-status:
+	@kubectl -n synthetic-monitoring get pods,svc,deploy 2>&1
+	@echo "---"
+	@kubectl -n synthetic-monitoring logs deploy/sm-agent-1 --tail=20 2>&1 || true

@@ -1,0 +1,22 @@
+apiVersion: syntheticmonitoring.ext.grafana.app/v1alpha1
+kind: Check
+metadata:
+  name: "webshop-cart-74159"
+spec:
+  job: webshop-cart
+  target: http://cart.shop.svc.cluster.local:8082/healthz
+  enabled: true
+  frequency: 60000
+  timeout: 5000
+  probes:
+    - private probe
+  labels:
+    - name: app
+      value: webshop
+    - name: service
+      value: cart
+  settings:
+    http:
+      method: GET
+      validStatusCodes:
+        - 200
