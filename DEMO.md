@@ -1,0 +1,96 @@
+# Webinar Demo: Alert → Assistant Investigation → Skill → Workspace → Incident → PR
+
+End-to-end AI-driven incident response loop in Grafana Cloud, driven by the `webinar_demo` Go microservices app. A fault surfaces as an alert, IRM auto-triggers a Grafana Assistant Investigation, the Investigation matches a preprovisioned Skill via semantic search, the engineer reviews the workspace, optionally declares a linked incident, and the Assistant opens a PR to fix the root cause — all without leaving Grafana.
+
+## Demo Flow → Grafana Features
+
+| Step | Demo beat | Grafana product feature |
+|------|-----------|-------------------------|
+| 1 | Alert fires | Grafana managed alert rule + contact point routed to IRM |
+| 2 | Investigation auto-triggers | IRM outgoing webhook: **"Grafana Assistant for IRM"** preset |
+| 3 | Investigation uses preprovisioned Skill (embedding match) | Grafana Assistant **Skills** (GA Mar 2026), "Visible to agents" toggle → semantic search index |
+| 4 | Work in workspace | Assistant **Investigation workspace** (timeline, agent findings, report) |
+| 5 | Incident linked (optional) | IRM incident — webhook posts investigation link back as an activity item |
+| 6 | Assistant opens PR | **Aspirational** — framed as Assistant directly creating a GitHub PR (not a documented Grafana capability today; narrate as forward-looking) |
+
+## Assets to Provision
+
+### A. Application fault (in this repo, ahead of demo)
+
+Inject a fault in a Go service on a branch — e.g., bump error rate in `services/payment` or `services/checkout`. Run `loadgen` to surface it. The fault and its fix are the substance of the PR in step 6.
+
+- Branch: `demo/payment-bug` (or similar)
+- Fix branch (target of step 6 PR): `main`
+- Fault should be obvious enough that a fix is a small, demo-friendly diff (e.g., an off-by-one, a missing nil check, a wrong threshold)
+
+### B. Grafana Cloud assets
+
+| Asset | Provision via | Notes |
+|-------|---------------|-------|
+| Prometheus alert rule (e.g., payment error rate > X) | `gcx alert rules` (push manifest) | Verify with `gcx alert rules list` |
+| Contact point → IRM | `gcx alert contact-points` | IRM preset |
+| IRM integration receiving the alert | `gcx irm oncall integrations` | Grafana Alertmanager integration type |
+| Escalation chain / route | `gcx irm oncall` | Minimal — no human paging needed for the demo |
+| **IRM outgoing webhook — "Grafana Assistant for IRM" preset** | **Grafana UI** | Alerts & IRM → IRM → Integrations → Outgoing webhooks → New webhook → select preset. Triggers: **"Alert group created"** + **"Status change"** (alert groups), **"Incident changed"** (incidents). Not currently surfaced via `gcx`. |
+| **Assistant Skill** (preprovisioned, "Visible to agents" on) | **Grafana UI** | Grafana Assistant → Skills → New Skill. Title + description + structured content (headings = procedure steps) + `@`-attached dashboards/queries. Visibility: Team. Not currently surfaced via `gcx`. |
+| Optional: incident type / auto-declare rule | `gcx irm incidents` resources | Lets a firing alert auto-declare an incident so step 5 is hands-free |
+
+### C. Skill content (preprovisioned)
+
+Write one Skill that the investigation will semantically match for this fault. Example — title: *"Investigate payment service error spikes"*. Content (markdown with headings) walks through:
+
+1. Confirm the alert/symptom (link a dashboard via `@`)
+2. Check error-rate metric (link the PromQL query)
+3. Pull recent logs (link the LogQL query)
+4. Correlate with recent deploys
+5. Recommend remediation
+
+The Skill is what makes step 3 land in the demo: when the Investigation kicks off, the semantic search index returns this Skill because the alert summary matches its title/description embedding, and the Assistant follows the procedure.
+
+## Demo Script (narration)
+
+1. **Set the stage.** Show the `webinar_demo` topology dashboard. Mention the Skill that's preprovisioned — open the Skills list briefly.
+2. **Trigger the fault.** Deploy the `demo/payment-bug` branch (or flip its env var), start loadgen.
+3. **Alert fires.** Show it in Alerting → Active. Show that the contact point routed it to IRM.
+4. **Investigation auto-triggers.** IRM webhook fires; switch to the Assistant Investigation workspace. Point out that *no one clicked anything* — the webhook did it.
+5. **Skill matched.** In the workspace timeline, highlight where the Assistant references the preprovisioned Skill (semantic match — no `@`-mention needed). Walk through the agent fan-out: metrics, logs, traces, profiles.
+6. **Review the report.** Key findings, timeline, recommended next steps.
+7. **Optional: incident.** Declare an incident from the alert group; show the investigation link auto-posted as an activity item.
+8. **PR (aspirational).** Narrate: *"…and from here, the Assistant opens a PR against the service repo with the fix."* Show a pre-prepared PR on GitHub against `webinar_demo` as the visual payoff. Be honest in the talk track that the PR-creation step is the forward-looking piece.
+
+## Provisioning Order (pre-demo checklist)
+
+1. Verify gcx context: `gcx config check`
+2. Create Prometheus alert rule (gcx)
+3. Create IRM integration + route (gcx)
+4. Create contact point → IRM (gcx)
+5. **UI:** Create IRM outgoing webhook ("Grafana Assistant for IRM" preset) with the trigger types above
+6. **UI:** Create the Assistant Skill with "Visible to agents" enabled, attach the relevant dashboard and queries
+7. Build & deploy the `demo/payment-bug` branch to the cluster
+8. Dry-run: trigger fault → alert fires → investigation starts → Skill referenced in workspace → incident declared → link-back visible
+9. Prepare the "fix" PR on GitHub (draft) for the step-6 reveal
+
+## Verification
+
+End-to-end check before the webinar:
+
+- `gcx alert rules list` — rule present and healthy
+- `gcx alert instances list --state firing` — fires under load
+- `gcx irm oncall integrations list` — integration receives the alert group
+- Grafana UI → Outgoing webhooks — "Grafana Assistant for IRM" webhook shows recent deliveries
+- Grafana UI → Assistant → Investigations — investigation created automatically, references the Skill in its timeline
+- `gcx assistant investigations list` and `gcx assistant investigations report <id>` — investigation reachable via CLI
+- Grafana UI → IRM Incidents — if auto-declare configured, incident exists with investigation link as activity item
+
+## Open Items / Risks
+
+- **Skill provisioning is UI-only today.** If multiple Skills need to be reproduced, capture screenshots / export the content as markdown for re-creation. Watch for a future `gcx` surface.
+- **Step 6 (Assistant opens PR) is aspirational.** Decide whether to (a) hand-prepare a draft PR for the reveal, (b) frame it explicitly as roadmap, or (c) drop the step. Today's realistic alternative is a coding agent (e.g., Claude Code) consuming `gcx assistant investigations report <id>` and running `gh pr create`.
+- **Semantic match is non-deterministic.** Rehearse the alert summary / Skill title wording so the match is reliable. If it doesn't match in a rehearsal, tighten the Skill's title/description until it does.
+
+## References
+
+- [Skills in Grafana Assistant are now GA](https://grafana.com/whats-new/2026-03-17-skills-in-grafana-assistant-are-now-generally-available/)
+- [Create Skills — Grafana Cloud docs](https://grafana.com/docs/grafana-cloud/machine-learning/assistant/guides/skills/)
+- [Configure IRM webhooks for automated investigations](https://grafana.com/docs/grafana-cloud/machine-learning/assistant/configure/irm-webhooks/)
+- [Run investigations — Grafana Cloud docs](https://grafana.com/docs/grafana-cloud/machine-learning/assistant/guides/investigation/)
