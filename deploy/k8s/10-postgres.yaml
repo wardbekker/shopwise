@@ -1,0 +1,107 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: shop
+data:
+  init.sql: |
+    CREATE DATABASE products;
+    CREATE DATABASE orders;
+    \c products
+    CREATE TABLE products (
+      id text PRIMARY KEY,
+      name text NOT NULL,
+      description text NOT NULL,
+      price numeric NOT NULL,
+      currency text NOT NULL,
+      stock int NOT NULL
+    );
+    INSERT INTO products (id, name, description, price, currency, stock) VALUES
+      ('p1','Wireless Mouse','Ergonomic 2.4GHz wireless mouse',24.99,'USD',120),
+      ('p2','Mechanical Keyboard','Tactile brown switches, RGB backlit',89.00,'USD',45),
+      ('p3','USB-C Hub','7-in-1 hub with HDMI and SD reader',39.50,'USD',80),
+      ('p4','Noise-Cancelling Headphones','Over-ear, 30h battery',199.00,'USD',30),
+      ('p5','27" 4K Monitor','IPS, 60Hz, USB-C input',329.00,'USD',15),
+      ('p6','Webcam 1080p','Auto-focus, dual mic',49.95,'USD',100),
+      ('p7','Standing Desk Mat','Cushioned anti-fatigue mat',34.00,'USD',60),
+      ('p8','Desk Lamp','Adjustable LED with USB charging port',45.00,'USD',75),
+      ('p9','Notebook Stand','Aluminum laptop riser',29.99,'USD',150),
+      ('p10','Coffee Mug','Insulated 16oz travel mug',14.50,'USD',300);
+    \c orders
+    CREATE TABLE orders (
+      id text PRIMARY KEY,
+      user_id text NOT NULL,
+      items jsonb NOT NULL,
+      total numeric NOT NULL,
+      currency text NOT NULL,
+      transaction_id text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX orders_user_idx ON orders(user_id, created_at DESC);
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: shop
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_PASSWORD
+              value: postgres
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_DB
+              value: postgres
+          volumeMounts:
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d/init.sql
+              subPath: init.sql
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: init
+          configMap:
+            name: postgres-init
+        - name: data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: shop
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432

@@ -1,0 +1,30 @@
+# Go build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/bin/
+/dist/
+/out/
+
+# Go workspace
+go.work
+go.work.sum
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local env
+.env
+.env.local
+
+# Claude Code session state
+.claude/

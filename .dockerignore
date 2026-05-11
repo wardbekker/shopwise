@@ -1,0 +1,10 @@
+.git
+.DS_Store
+deploy
+Makefile
+*.md
+.vscode
+.idea
+plans
+bin
+dist
