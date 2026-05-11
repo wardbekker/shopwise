@@ -2,7 +2,7 @@ SERVICES := frontend product-catalog cart checkout payment order loadgen
 CLUSTER  := webinar-demo
 TAG      := dev
 
-.PHONY: tidy build import cluster-up cluster-down deploy undeploy up wait-ready down logs reload status psql
+.PHONY: tidy build import cluster-up cluster-down deploy undeploy up wait-ready down logs reload status psql monitoring-install monitoring-uninstall monitoring-status
 
 tidy:
 	go mod tidy
@@ -55,3 +55,23 @@ status:
 
 psql:
 	kubectl -n shop exec -it deploy/postgres -- psql -U postgres
+
+monitoring-install:
+	@test -f .env || (echo "missing .env (see .env.example)" && exit 1)
+	@set -a; . ./.env; set +a; \
+	helm repo add grafana https://grafana.github.io/helm-charts >/dev/null 2>&1 || true; \
+	helm repo update grafana >/dev/null; \
+	helm upgrade --install grafana-cloud -n monitoring --create-namespace \
+		grafana/grafana-cloud-onboarding \
+		--set "cluster.name=$$GRAFANA_CLOUD_CLUSTER_NAME" \
+		--set "grafanaCloud.fleetManagement.auth.username=$$GRAFANA_CLOUD_FM_USERNAME" \
+		--set "grafanaCloud.fleetManagement.auth.password=$$GRAFANA_CLOUD_FM_PASSWORD" \
+		--set "grafanaCloud.fleetManagement.url=$$GRAFANA_CLOUD_FM_URL" \
+		--wait
+
+monitoring-uninstall:
+	helm uninstall grafana-cloud -n monitoring --ignore-not-found
+	kubectl delete namespace monitoring --ignore-not-found
+
+monitoring-status:
+	@kubectl -n monitoring get pods,svc 2>&1
