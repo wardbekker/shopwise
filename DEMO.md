@@ -56,7 +56,7 @@ The Skill is what makes step 3 land in the demo: when the Investigation kicks of
 5. **Investigation auto-triggers, attached to the incident.** On the incident page, the Grafana Assistant Investigation appears in the activity / sidebar. Open the workspace. Point out that *no one clicked anything* — the webhook fired on Incident Created.
 6. **Skill matched.** In the workspace timeline, highlight where the Assistant references the preprovisioned Skill (semantic match — no `@`-mention needed). Walk through the agent fan-out: metrics, logs, traces, profiles.
 7. **Review the report.** Key findings, timeline, recommended next steps.
-8. **PR (aspirational).** Narrate: *"…and from here, the Assistant opens a PR against the service repo with the fix."* Show a pre-prepared PR on GitHub against `webinar_demo` as the visual payoff. Be honest in the talk track that the PR-creation step is the forward-looking piece.
+8. **PR via coding agent.** The Investigation's RCA stops at *"bad deploy → rollback"* — it correctly recommends the safest immediate action but doesn't reach the source. Switch to Claude Code in the repo: it reads `gcx assistant investigations narrative <id>` (the Investigation's executive summary) plus `services/payment/main.go`, identifies that `pickProcessor` returns a nil `*paymentProcessor` for `amount > 100` when `BUG_AMOUNT_PANIC=1`, and opens a PR that either finishes wiring the high-value processor or removes the bug toggle path. Pre-prepare the diff so the reveal lands fast. Honest framing: Grafana Assistant doesn't open the PR itself today — a coding agent grounded on the Investigation's output does.
 
 ## Provisioning Order (pre-demo checklist)
 
@@ -81,14 +81,28 @@ End-to-end check before the webinar:
 - `gcx irm incidents list` — new incident appears (auto-declared) within ~30s of the alert group
 - Grafana UI → Outgoing webhooks — "Grafana Assistant for IRM" webhook shows a recent **Incident Created** delivery
 - Grafana UI → IRM → Incidents → open the new incident — the Investigation is visible in the incident's activity / sidebar without manual action
-- `gcx assistant investigations list` and `gcx assistant investigations state <id>` — investigation reachable via CLI; its `source.url` points at the incident
+
+Read the Investigation from the CLI (lodestone variant — the legacy `report`/`timeline`/`todos` subcommands return empty stubs and should not be used):
+
+```sh
+INV=$(gcx irm incidents list --json metadata.name,spec.refs -o json \
+  | jq -r '.[0].spec.refs[] | select(.key=="com.grafana.assistant") | .ref')
+
+gcx assistant investigations narrative $INV   # agent prose / executive summary
+gcx assistant investigations skills    $INV   # confirms the Skill semantic match
+gcx assistant investigations tools     $INV   # full tool-call trail (Prom/Loki/Tempo)
+gcx assistant investigations chat      $INV   # raw message thread, if needed
+```
+
+Requires the gcx build that contains the lodestone subcommands (commit `85e6036d` or later). Earlier builds expose only the v1 surface, which returns empty content on lodestone investigations.
 
 ## Open Items / Risks
 
 - **Skill provisioning is UI-only today.** If multiple Skills need to be reproduced, capture screenshots / export the content as markdown for re-creation. Watch for a future `gcx` surface.
 - **Auto-declare rule is UI-only today.** Same caveat — screenshot the rule and document the match labels + severity so it can be rebuilt by hand if the stack is rebuilt.
-- **Step 8 (Assistant opens PR) is aspirational.** Decide whether to (a) hand-prepare a draft PR for the reveal, (b) frame it explicitly as roadmap, or (c) drop the step. Today's realistic alternative is a coding agent (e.g., Claude Code) consuming `gcx assistant investigations state <id>` and running `gh pr create`.
+- **Step 8 PR creation is coding-agent-driven, not Assistant-driven.** Grafana Assistant doesn't open PRs today. Step 8 in this script uses Claude Code, grounded on `gcx assistant investigations narrative <id>` plus the source tree. Pre-prepare the diff for the reveal.
 - **Semantic match is non-deterministic.** Rehearse the alert summary / Skill title wording so the match is reliable. If it doesn't match in a rehearsal, tighten the Skill's title/description until it does.
+- **Stale-data anchoring across demo runs.** Loki retains panic logs from earlier toggles; an Investigation run later in the day will identify the *earliest* panic of the day, not the one that just fired, and cite stale pod names. Mitigation: run the webinar as the first fault of the day, or `make down && make up` an hour before to flush log history.
 
 ## References
 

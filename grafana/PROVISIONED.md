@@ -111,6 +111,19 @@ gcx irm oncall escalation-chains list
 gcx api /api/plugins/grafana-irm-app/resources/webhooks/WH8F1YZRGHL8PH
 ```
 
+Read the most recent Investigation attached to an incident (lodestone variant — needs gcx with the lodestone subcommands, commit `85e6036d` or later):
+
+```sh
+INV=$(gcx irm incidents list --json metadata.name,spec.refs -o json \
+  | jq -r '.[0].spec.refs[] | select(.key=="com.grafana.assistant") | .ref')
+
+gcx assistant investigations narrative $INV   # agent RCA prose
+gcx assistant investigations skills    $INV   # Skill semantic match
+gcx assistant investigations tools     $INV   # tool-call trail
+```
+
+The legacy `gcx assistant investigations report|timeline|todos` subcommands return empty stubs on lodestone investigations — use the three above instead.
+
 ## Cleanup
 
 ```sh
