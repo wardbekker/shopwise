@@ -37,7 +37,10 @@ var defaultProcessor = &paymentProcessor{apiKey: "demo-key"}
 func pickProcessor(amount float64) *paymentProcessor {
 	if os.Getenv("BUG_AMOUNT_PANIC") == "1" && amount > 100 {
 		var highValue *paymentProcessor // TODO: wire up high-value processor
-		return highValue
+		if highValue != nil {
+			return highValue
+		}
+		// high-value processor not yet wired; fall through to default
 	}
 	return defaultProcessor
 }
