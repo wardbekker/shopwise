@@ -1,19 +1,25 @@
 # Outgoing webhook that auto-triggers a Grafana Assistant Investigation whenever
-# an alert group is created in the `payment-demo` integration.
+# an IRM incident is created or changes. The `grafana_assistant` preset routes
+# the payload to the Assistant's `from-irm-incident` endpoint, which creates an
+# Investigation attached to the incident.
 #
-# The `grafana_assistant` preset locks `url` and `http_method` — do not send them
-# in the create payload. The integration_filter ID is server-assigned; substitute
-# at apply time.
+# Pair this with:
+#   - An OnCall non-default route + `declare_incident` escalation step (so an
+#     alert auto-declares an incident — see PROVISIONED.md for IDs)
+#   - The `grafana_assistant` preset (locks `url` and `http_method`; do not send
+#     them in the create payload).
+#
+# Note: trigger_type=11 ("Incident Declared") is the create-time trigger.
+# trigger_type=12 ("Incident Changed") does NOT fire on initial creation —
+# verified empirically against this stack; it only fires on subsequent updates.
+# integration_filter is left empty here (forwards on any incident).
 #
 # Apply via:
-#   INTEGRATION_ID=$(gcx irm oncall integrations list --json metadata.name,spec.verbal_name \
-#     -o json | jq -r '.[] | select(.["spec.verbal_name"]=="payment-demo") | .["metadata.name"]')
 #   gcx api /api/plugins/grafana-irm-app/resources/webhooks/ \
 #     -X POST -H 'Content-Type: application/json' \
-#     -d "{\"name\":\"Grafana Assistant - payment-demo\",\"preset\":\"grafana_assistant\",\"trigger_type\":\"1\",\"is_webhook_enabled\":true,\"integration_filter\":[\"$INTEGRATION_ID\"]}"
-name: Grafana Assistant - payment-demo
+#     -d '{"name":"Grafana Assistant - Incidents - incident declared","preset":"grafana_assistant","trigger_type":"11","is_webhook_enabled":true}'
+name: Grafana Assistant - Incidents - incident declared
 preset: grafana_assistant
-trigger_type: "1"        # 1 = Alert Group Created
+trigger_type: "11"       # 11 = Incident Declared (fires on initial creation). Use 12 (Incident Changed) only if you specifically want update events; it does NOT fire on initial declare.
 is_webhook_enabled: true
-integration_filter:
-  - __INTEGRATION_ID__   # filled in at apply time (see header)
+integration_filter: []   # webhook fires on any incident regardless of source integration

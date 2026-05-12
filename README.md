@@ -58,8 +58,8 @@ Expected timing (steady-state load from `loadgen`):
 | 1:00–2:00 | Beyla discovers the new pod; 5xx appear in metrics |
 | 2:30 | Ratio crosses 5% threshold |
 | 3:30 | Alert transitions `inactive → pending` (then `→ firing` after `for: 1m`) |
-| 3:45 | IRM alert group created, `grafana_assistant` webhook fires |
-| 3:46 | Assistant Investigation auto-created with the alert context |
+| 3:45 | IRM alert group opens; auto-declare rule creates an IRM incident |
+| 3:46 | `grafana_assistant` webhook fires on **Incident Created**; Assistant Investigation auto-created and attached to the incident |
 
 After clearing the fault, the alert resolves automatically once the 5xx samples
 drain out of the 5-minute rate window (~5 min).
@@ -73,7 +73,7 @@ Open Claude Code in this repo and paste:
 > is `kubectl -n shop set env deploy/payment BUG_AMOUNT_PANIC=1` (clear with
 > `BUG_AMOUNT_PANIC-`). Verify the cluster and gcx context `wbkprez` are healthy,
 > then watch the payment 5xx ratio and the alert state, and walk me through
-> alert → IRM → Investigation.
+> alert → auto-declared incident → Investigation attached to the incident.
 
 Claude reads `CLAUDE.md` on startup, then the three pointers above are enough
 to operate the demo.

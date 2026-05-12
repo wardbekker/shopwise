@@ -48,8 +48,22 @@ Added a route on the root tree:
 |-------|------|-----|
 | Integration (`grafana_alerting`) | `payment-demo` | `CA9SJ5X6ZJFVN` |
 | Default route on the integration | — | `RQ3RQ452XC52X` |
-| Escalation chain | `payment-demo` | `FDN21BG5BR5L7` |
-| Outgoing webhook (preset `grafana_assistant`, trigger `Alert Group Created`) | `Grafana Assistant - payment-demo` | `WH8F1YZRGHL8PH` |
+| Non-default route (`.*` regex, position 0; gates `declare_incident`) | — | `RRS4VY9NEUZT2` |
+| Escalation chain (bound to both routes) | `payment-demo` | `FDN21BG5BR5L7` |
+| Escalation policy: **Declare Incident** (step 19, severity Major) | — | `ECX1SI1Q42BJK` |
+| Outgoing webhook (preset `grafana_assistant`, trigger `Incident Declared`) | `Grafana Assistant - Incidents - incident declared` | `WHFRBPLXXU35IZ` |
+| Outgoing webhook — **disabled**, kept for reference (trigger `Alert Group Created`) | `Grafana Assistant - payment-demo` | `WH8F1YZRGHL8PH` |
+
+Severity IDs (discover via `gcx irm incidents severities list`):
+
+| Label | ID |
+|-------|-----|
+| Critical | `75ac4153-4d2e-11f1-8501-06d3a20484c2` |
+| Major (used by `ECX1SI1Q42BJK`) | `75ac44d9-4d2e-11f1-8501-06d3a20484c2` |
+| Minor | `75ac4c15-4d2e-11f1-8501-06d3a20484c2` |
+| Pending | `75ac3cdb-4d2e-11f1-8501-06d3a20484c2` |
+
+> ⚠️ **Pass severity as the label string (`"Major"`), not the UUID.** The escalation-policy API accepts a UUID and stores it, but the declare-incident worker only resolves the label form — a UUID silently falls back to `Pending` on the resulting incident. The UI normalises to the label on save.
 
 Integration URL (used by the contact point) — token redacted; fetch the real URL with:
 
@@ -58,12 +72,33 @@ gcx irm oncall integrations list --json spec.verbal_name,spec.integration_url
 ```
 
 Webhook target URL (auto-set by preset):
-`https://wbkprez.grafana.net/api/plugins/grafana-assistant-app/resources/api/v1/investigations/from-irm`
+`https://wbkprez.grafana.net/api/plugins/grafana-assistant-app/resources/api/v1/investigations/from-irm-incident`
+
+### Auto-declare flow (how an alert becomes an incident)
+
+1. Grafana managed alert routes via contact point `payment-demo` to OnCall integration `CA9SJ5X6ZJFVN`.
+2. OnCall opens an alert group. The non-default route `RRS4VY9NEUZT2` (regex `.*`, position 0) catches it before the default route.
+3. Chain `FDN21BG5BR5L7` runs its sole policy `ECX1SI1Q42BJK` (step 19 = **Declare Incident**, severity Major) — an IRM incident is created.
+4. The outgoing webhook `WHFRBPLXXU35IZ` (trigger `Incident Changed`) fires and POSTs the incident payload to the Assistant's `from-irm-incident` endpoint.
+5. The Assistant creates an Investigation attached to the incident.
+
+To recreate the auto-declare wiring from scratch (gcx-able — no UI required):
+
+```sh
+# Non-default route (regex .* catches everything routed to this integration)
+gcx api /api/plugins/grafana-irm-app/resources/channel_filters/ -X POST -H 'Content-Type: application/json' \
+  -d '{"alert_receive_channel":"CA9SJ5X6ZJFVN","escalation_chain":"FDN21BG5BR5L7","filtering_term":".*","filtering_term_type":0}'
+
+# Declare-incident escalation step (step 19, severity Major).
+# Use the label "Major" — UUIDs are accepted but silently downgrade the incident to Pending.
+gcx api /api/plugins/grafana-irm-app/resources/escalation_policies/ -X POST -H 'Content-Type: application/json' \
+  -d '{"escalation_chain":"FDN21BG5BR5L7","step":19,"severity":"Major"}'
+```
 
 ## What still needs the UI
 
 - **Assistant Skill** — paste `grafana/skills/payment-error-spike.md` into Grafana Assistant → Skills → New Skill. Set **Visible to agents** ON, **Visibility** = Team.
-- Optional: add a second outgoing webhook with **trigger type "Status change"** if you want investigation context to refresh as the alert evolves. The current webhook only triggers on initial alert group creation.
+- **Outgoing webhook** — the `grafana_assistant` preset is selected via the UI (IRM → Integrations → Outgoing webhooks → New webhook → pick preset). The preset locks `url` and `http_method`. Once created, the rest of the config (trigger, enabled state) is `gcx api`-patchable.
 
 ## End-to-end sanity check
 
