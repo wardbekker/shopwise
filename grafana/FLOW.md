@@ -1,8 +1,8 @@
 # Demo flow — alert to autonomous fix
 
-The story we tell the customer: **Grafana Cloud detects the critical
-issue, kicks off an autonomous Investigation, and the Investigation
-follows a runbook that tells it how to ship a fix.**
+**Grafana Cloud detects the critical issue, kicks off an autonomous
+Investigation, and the Investigation follows a runbook that tells it
+how to ship a fix.**
 
 ```mermaid
 flowchart LR
