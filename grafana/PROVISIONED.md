@@ -18,9 +18,9 @@ Manifests (sanitised, for recreation): `manifests/`.
 - UID: `bflqs4pcrmi2oc`
 - Condition (fires when ratio > 0.05 for 1m):
   ```promql
-  (sum(rate(http_server_request_duration_seconds_count{service_name="payment",http_response_status_code=~"5.."}[5m])) or vector(0))
+  (sum(rate(http_server_request_duration_seconds_count{service_name="payment",http_response_status_code=~"5.."}[2m])) or vector(0))
   /
-  clamp_min(sum(rate(http_server_request_duration_seconds_count{service_name="payment"}[5m])), 0.001)
+  clamp_min(sum(rate(http_server_request_duration_seconds_count{service_name="payment"}[2m])), 0.001)
   ```
 - Source: Beyla auto-instrumentation (OTel semconv on all 7 services in namespace `shop`)
 - Labels: `service=payment`, `severity=critical`, `runbook=payment-error-spike`

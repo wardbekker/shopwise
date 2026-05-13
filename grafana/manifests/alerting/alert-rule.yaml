@@ -8,7 +8,7 @@ title: payment error rate high
 ruleGroup: payment-demo
 folderUID: fflqs43gpv7cwa
 condition: C
-for: 1m
+for: 0s
 noDataState: OK
 execErrState: OK
 isPaused: false
@@ -31,9 +31,9 @@ data:
       datasource: {type: prometheus, uid: grafanacloud-prom}
       editorMode: code
       expr: >-
-        (sum(rate(http_server_request_duration_seconds_count{service_name="payment",http_response_status_code=~"5.."}[5m]))
+        (sum(rate(http_server_request_duration_seconds_count{service_name="payment",http_response_status_code=~"5.."}[2m]))
         or vector(0)) /
-        clamp_min(sum(rate(http_server_request_duration_seconds_count{service_name="payment"}[5m])), 0.001)
+        clamp_min(sum(rate(http_server_request_duration_seconds_count{service_name="payment"}[2m])), 0.001)
       instant: true
       intervalMs: 1000
       maxDataPoints: 43200
