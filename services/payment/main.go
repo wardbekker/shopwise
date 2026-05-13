@@ -31,14 +31,10 @@ func (p *paymentProcessor) charge(req model.ChargeRequest) (string, error) {
 var defaultProcessor = &paymentProcessor{apiKey: "demo-key"}
 
 // pickProcessor selects a processor based on the charge amount.
-// High-value transactions are supposed to use a dedicated processor for
-// stricter fraud rules — but the wiring for that path was never finished,
-// so when BUG_AMOUNT_PANIC=1 it returns a nil pointer for amount > 100.
+// High-value transactions are intended to use a dedicated processor for
+// stricter fraud rules — that path is not yet implemented, so all
+// transactions fall through to defaultProcessor for now.
 func pickProcessor(amount float64) *paymentProcessor {
-	if os.Getenv("BUG_AMOUNT_PANIC") == "1" && amount > 100 {
-		var highValue *paymentProcessor // TODO: wire up high-value processor
-		return highValue
-	}
 	return defaultProcessor
 }
 
